@@ -24,7 +24,7 @@ _BLUE_INDEX = "blue"
 _GREEN_INDEX = "green"
 
 _TEXT_ANALYZER = StemmingAnalyzer() | CharsetFilter(accent_map)
-_N_GRAM_ANALYZER = analysis.NgramWordAnalyzer(minsize=2, maxsize=2)
+_N_GRAM_ANALYZER = analysis.NgramWordAnalyzer(minsize=2, maxsize=2, at='start')
 
 
 class BookmarkSchema(fields.SchemaClass):
@@ -48,22 +48,26 @@ class BookmarkIndex:
     def get_bookmark_tree(self, tree, writer, path, icon_filename, profile):
         if type(tree) is not dict:
             return
-        for i, item in enumerate(tree[_CHILDREN_KEY]):
+        urls = []
+        names = [tree['name']]
+        for item in tree[_CHILDREN_KEY]:
             name = item['name']
-            item_path = path + " : " + name if path != "" else name
+            item_path = path if path != "" else name
             if _CHILDREN_KEY in item:
                 self.get_bookmark_tree(item, writer, item_path, icon_filename, profile)
             else:
-                url = item['url']
-                content = name + "  " + path + "  " + url + "  " + profile
-                writer.add_document(contentNGram=content,
-                                    contentText=content,
-                                    name=name,
-                                    url=url,
-                                    path=path,
-                                    profile=profile,
-                                    icon=icon_filename,
-                                    urlSize=len(url))
+                urls.append(item['url'])
+                names.append(name)
+        if urls:
+            content = " ".join(names)
+            writer.add_document(contentNGram=content,
+                                contentText=content,
+                                name=tree['name'],
+                                url=" ".join(urls),
+                                path=path,
+                                profile=profile,
+                                icon=icon_filename,
+                                urlSize=len(urls))
 
     def get_bookmarks(self, profiles, writer):
         wf = self._wf

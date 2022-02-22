@@ -65,11 +65,10 @@ def main(wf):
         # Loop through the returned bookmarks and add an item for each to
         # the list of results for Alfred
         for hit in results[0:20]:
-            location = "in " + hit['path'] + " " if hit['path'] != "" else ""
-            url = "(" + hit['url'] + ")"
+            encoded_params = "%s,%s,%s" % (hit['profile'], hit['name'], hit['url'])
             wf.add_item(title=hit['name'],
-                        subtitle=location + url,
-                        arg=hit['url'],
+                        subtitle="%s webpages" % hit['urlSize'],
+                        arg=encoded_params,
                         valid=True,
                         icon=hit['icon'])
 

@@ -7,15 +7,15 @@ This alfred3 workflow can search your Chrome Bookmarks across multiple Chrome Pr
 1. Shows matching Chrome Bookmarks.
 2. Matches and Displays the Title of bookmark, URL, and Folder name.
 3. Fast relevant results, indexes in the background
-4. Add and remove your chrome profiles to control which accounts are shown in search results  
-5. Displays the icon for the Chrome Profile that owns the bookmark. 
+4. Add and remove your chrome profiles to control which accounts are shown in search results
+5. Displays the icon for the Chrome Profile that owns the bookmark.
 
 ## How to Use
 
 Type `bm` to see your bookmarks
 
 Start typing a query and the bookmarks get filtered.
- 
+
 Type `bm-add` or `bm-remove` then select a listed profile to customize profiles that are searched.
 
 **Note:** `bm-remove` will show the profiles that are currently being searched.
