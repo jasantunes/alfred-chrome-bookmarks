@@ -16,22 +16,24 @@ INDEX_PREFIX = "bookmarks-"
 INDEXING_SETTING = "indexing"
 CURRENT_INDEX_SETTING = "currentIndex"
 INDEX_FRESH_CACHE = "freshIndex"
-_N_GRAM_FIELD = "contentNGram"
-_TEXT_FIELD = "contentText"
+_N_GRAM_FIELD = "content"
+_TEXT_FIELD = "title"
 _CHILDREN_KEY = "children"
 
 _BLUE_INDEX = "blue"
 _GREEN_INDEX = "green"
 
 _TEXT_ANALYZER = StemmingAnalyzer() | CharsetFilter(accent_map)
-_N_GRAM_ANALYZER = analysis.NgramWordAnalyzer(minsize=2, maxsize=2, at='start')
+_N_GRAM_ANALYZER = analysis.NgramWordAnalyzer(minsize=2, maxsize=10, at='start')
 
+HISTORY_FILE = "history.tsv"
+HISTORY = {}
 
 class BookmarkSchema(fields.SchemaClass):
-    contentNGram = TEXT(stored=False, analyzer=_N_GRAM_ANALYZER, phrase=False)
-    contentText = TEXT(stored=False, analyzer=_TEXT_ANALYZER, phrase=True)
-    urlSize = NUMERIC(signed=False, sortable=True, default=999)
-    name = STORED()
+    title = TEXT(stored=True, analyzer=_TEXT_ANALYZER, phrase=True)
+    content = TEXT(stored=False, analyzer=_N_GRAM_ANALYZER, phrase=False)
+    freq = NUMERIC(stored=True, signed=False, sortable=True, default=0)
+    urlSize = NUMERIC(stored=True, signed=False, sortable=False, default=0)
     path = STORED()
     profile = STORED()
     url = STORED()
@@ -59,10 +61,12 @@ class BookmarkIndex:
                 urls.append(item['url'])
                 names.append(name)
         if urls:
-            content = " ".join(names)
-            writer.add_document(contentNGram=content,
-                                contentText=content,
-                                name=tree['name'],
+            titles = " ".join(names)
+            title = tree['name']
+            freq = HISTORY[profile][title] if profile in HISTORY and title in HISTORY[profile] else 0
+            writer.add_document(title=title,
+                                content=titles,
+                                freq = freq,
                                 url=" ".join(urls),
                                 path=path,
                                 profile=profile,
@@ -91,8 +95,13 @@ class BookmarkIndex:
 
     def index_profiles(self, profiles):
         wf = self._wf
+        wf.logger.info("Processing the history file: %s, in cache dir: %s", HISTORY_FILE, self._cacheDir)
+        BookmarkIndex.build_history(self._cacheDir +"/" + HISTORY_FILE)
+        print("HISTORY:")
+        print(HISTORY)
+
         wf.cache_data(INDEXING_SETTING, True)
-        current_index_color = self._wf.settings.setdefault(CURRENT_INDEX_SETTING, _GREEN_INDEX)
+        current_index_color = wf.settings.setdefault(CURRENT_INDEX_SETTING, _GREEN_INDEX)
         new_index_color = _BLUE_INDEX if current_index_color == _GREEN_INDEX else _GREEN_INDEX
         new_index_name = INDEX_PREFIX + new_index_color
 
@@ -125,8 +134,8 @@ class BookmarkIndex:
             return None
 
     def n_gram_query(self, query_string):
-        og = qparser.OrGroup.factory(0.8)
-        parser = qparser.QueryParser(_N_GRAM_FIELD, self._schema, group=og)
+        # og = qparser.OrGroup.factory(0.8)
+        parser = qparser.QueryParser(_N_GRAM_FIELD, self._schema, group=qparser.AndGroup)
         parser.remove_plugin_class(qparser.FieldsPlugin)
         parser.remove_plugin_class(qparser.WildcardPlugin)
         parser.add_plugin(qparser.FuzzyTermPlugin())
@@ -138,7 +147,21 @@ class BookmarkIndex:
 
     @staticmethod
     def prefix_query(query_string):
-        if len(query_string) == 1:
-            return query.Prefix(_TEXT_FIELD, query_string)
-        else:
-            return query.Prefix(_TEXT_FIELD, query_string)
+        return query.Prefix(_TEXT_FIELD, query_string)
+        # if len(query_string) == 1:
+
+    @staticmethod
+    def build_history(filepath, max_age=0):
+        try:
+            with open(filepath, 'r') as f:
+                for line in f:
+                    ts, profile, bookmark = line.strip().decode("utf-8").split('\t')
+                    if profile not in HISTORY:
+                        HISTORY[profile] = {}
+                    if bookmark not in HISTORY[profile]:
+                        HISTORY[profile][bookmark] = 1
+                    else:
+                        HISTORY[profile][bookmark] += 1
+        except IOError:
+            return
+

@@ -44,17 +44,18 @@ def main(wf):
             return 0
 
         query_string = args.query
-        if query_string and len(query_string) == 1:
+        if query_string:
+
+            # parsed_term_query = bookmark_index.n_gram_query(query_string)
+            # results = searcher.search(parsed_term_query, limit=20)
             parsed_query = bookmark_index.prefix_query(query_string)
-            results = searcher.search(parsed_query, limit=20)
-        elif query_string:
-            parsed_term_query = bookmark_index.n_gram_query(query_string)
-            results = searcher.search(parsed_term_query, limit=40)
-            parsed_prefix_query = bookmark_index.prefix_query(query_string)
-            prefix_results = searcher.search(parsed_prefix_query, limit=40)
-            results.upgrade_and_extend(prefix_results)
+            results = searcher.search(parsed_query, limit=20, sortedby="freq", reverse=True)
+            if len(query_string) > 1:
+                parsed_term_query = bookmark_index.n_gram_query(query_string)
+                n_gram_results = searcher.search(parsed_term_query, limit=20)
+                results.upgrade_and_extend(n_gram_results)
         else:
-            results = searcher.search(bookmark_index.all_query(), limit=20, sortedby="urlSize")
+            results = searcher.search(bookmark_index.all_query(), limit=20, sortedby="freq", reverse=True)
 
         if results.scored_length() == 0:  # we have no data to show, so show a warning and stop
             wf.add_item('No bookmarks found', 'Try a different query', icon=ICON_WARNING)
@@ -65,9 +66,9 @@ def main(wf):
         # Loop through the returned bookmarks and add an item for each to
         # the list of results for Alfred
         for hit in results[0:20]:
-            encoded_params = "%s,%s,%s" % (hit['profile'], hit['name'], hit['url'])
-            wf.add_item(title=hit['name'],
-                        subtitle="%s webpages" % hit['urlSize'],
+            encoded_params = "%s,%s,%s" % (hit['profile'], hit['title'], hit['url'])
+            wf.add_item(title=hit['title'],
+                        subtitle="%d webpages (%d)" % (hit['urlSize'], hit['freq']),
                         arg=encoded_params,
                         valid=True,
                         icon=hit['icon'])
@@ -75,7 +76,7 @@ def main(wf):
     ####################################################################
     # Reindex in background, if our index was old
     ####################################################################
-    fresh_index = wf.cached_data(INDEX_FRESH_CACHE, max_age=450)
+    fresh_index = wf.cached_data(INDEX_FRESH_CACHE, max_age=300)
     if fresh_index is None:
         wf.logger.info("Index outdated, reindexing")
         run_in_background(BACKGROUND_JOB_KEY,

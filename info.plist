@@ -154,12 +154,9 @@
 				<key>script</key>
 				<string>query=$1
 IFS=, read profile bookmark url &lt;&lt;&lt; "${query}"
-
-&gt;&amp;2 echo "query: ${query}"
-&gt;&amp;2 echo "profile: ${profile}"
-&gt;&amp;2 echo "bookmark: ${bookmark}"
-&gt;&amp;2 echo "url: ${url}"
-open --new -a "Google Chrome" --args --new-window --profile-directory="${profile}" ${url}</string>
+timestamp=$(date +%s)
+open --new -b com.google.Chrome --args --new-window --profile-directory="${profile}" ${url}
+echo -e "${timestamp}\t${profile}\t${bookmark}" &gt;&gt; "${alfred_workflow_cache}/history.tsv"</string>
 				<key>scriptargtype</key>
 				<integer>1</integer>
 				<key>scriptfile</key>
