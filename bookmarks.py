@@ -7,6 +7,7 @@ import sys
 from bookmark_index import BookmarkIndex, BACKGROUND_JOB_KEY, INDEX_FRESH_CACHE, UPDATE_INDEX_COMMAND
 from workflow import Workflow3, ICON_WARNING
 from workflow.background import run_in_background, is_running
+from os.path import expanduser, isfile
 
 UPDATE_SETTINGS = {
     'github_slug': 'jasantunes/alfred-chrome-bookmarks',
@@ -72,23 +73,30 @@ def main(wf):
                 n_gram_results = searcher.search(parsed_term_query, limit=20)
                 results.upgrade_and_extend(n_gram_results)
         else:
+            # get most frequently used
             results = searcher.search(bookmark_index.all_query(), limit=20, sortedby="freq", reverse=True)
 
-        if results.scored_length() == 0:  # we have no data to show, so show a warning and stop
-            wf.add_item('No bookmarks found', 'Try a different query', icon=ICON_WARNING)
-            wf.rerun = 1
-            wf.send_feedback()
-            return 0
+            # show open in new window first
+            profiles = workflow.settings.setdefault("profiles", ["Default"])
+            for profile in profiles:
+                profile_dir = expanduser("~/Library/Application Support/Google/Chrome/%s" % profile)
+                icon_file = profile_dir + "/Google Profile Picture.png"
+                encoded_params = "%s,," % (profile)
+                wf.add_item(title="➡ Open new window in profile {}...".format(profile),
+                            arg=encoded_params,
+                            valid=True,
+                            icon=icon_file if isfile(icon_file) else "icon.png")
 
         # Loop through the returned bookmarks and add an item for each to
         # the list of results for Alfred
-        for hit in results[0:20]:
-            encoded_params = "%s,%s,%s" % (hit['profile'], hit['title'], hit['url'])
-            wf.add_item(title=hit['title'],
-                        subtitle="%d webpages (%d)" % (hit['urlSize'], hit['freq']),
-                        arg=encoded_params,
-                        valid=True,
-                        icon=hit['icon'])
+        if results.scored_length():
+            for hit in results[0:20]:
+                encoded_params = "%s,,%s" % (hit['profile'], hit['url'])
+                wf.add_item(title="{} ({})".format(hit['title'], hit['urlSize']),
+                            subtitle="[%s] Open %d webpages in Google Chrome" % (hit['profile'], hit['urlSize']),
+                            arg=encoded_params,
+                            valid=True,
+                            icon=hit['icon'])
 
     ####################################################################
     # Reindex in background, if our index was old
