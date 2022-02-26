@@ -93,7 +93,7 @@ class BookmarkIndex:
                 wf.logger.debug("freq: %d for %s" % (freq, title))
             writer.add_document(title=title,
                                 content=titles,
-                                freq = int(round(freq/len(urls))),
+                                freq=int(round(freq/len(urls))),
                                 url=" ".join(urls),
                                 path=path,
                                 profile=profile,
