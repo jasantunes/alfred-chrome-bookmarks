@@ -3,7 +3,10 @@
 
 import codecs
 import json
+import sqlite3
+import os
 from os.path import expanduser, isfile
+import shutil
 
 from whoosh import index, qparser, query, fields, analysis
 from whoosh.analysis import CharsetFilter, StemmingAnalyzer
@@ -26,8 +29,18 @@ _GREEN_INDEX = "green"
 _TEXT_ANALYZER = StemmingAnalyzer() | CharsetFilter(accent_map)
 _N_GRAM_ANALYZER = analysis.NgramWordAnalyzer(minsize=2, maxsize=10, at='start')
 
-HISTORY_FILE = "history.tsv"
-HISTORY = {}
+IGNORE_ROOT_BOOKMARKS = ("Bookmarks Bar", "Other Bookmarks", "Mobile Bookmarks")
+
+DB_HISTORY = {}
+SQL_QUERY_old = "SELECT visit_count FROM urls WHERE url=?;"
+SQL_QUERY = """
+    SELECT count(*)
+    FROM visits
+    JOIN urls
+    WHERE urls.id=visits.url
+    AND urls.url=?
+    AND visits.visit_duration >0;
+    """
 
 class BookmarkSchema(fields.SchemaClass):
     title = TEXT(stored=True, analyzer=_TEXT_ANALYZER, phrase=True)
@@ -50,23 +63,37 @@ class BookmarkIndex:
     def get_bookmark_tree(self, tree, writer, path, icon_filename, profile):
         if type(tree) is not dict:
             return
+        wf = self._wf
+        cur = DB_HISTORY[profile].cursor()
         urls = []
         names = [tree['name']]
+        freq = 0
         for item in tree[_CHILDREN_KEY]:
             name = item['name']
             item_path = path if path != "" else name
             if _CHILDREN_KEY in item:
                 self.get_bookmark_tree(item, writer, item_path, icon_filename, profile)
             else:
+                try:
+                    cur.execute(SQL_QUERY, (item['url'], ))
+                    result = cur.fetchone()
+                    if result:
+                        count = tuple(result)[0]
+                        freq += count
+                except sqlite3.OperationalError as e:
+                    wf.logger.error("Error executing sqlite query: %s" % e)
+
                 urls.append(item['url'])
                 names.append(name)
-        if urls:
+
+        title = tree['name']
+        if urls and title not in IGNORE_ROOT_BOOKMARKS:
             titles = " ".join(names)
-            title = tree['name']
-            freq = HISTORY[profile][title] if profile in HISTORY and title in HISTORY[profile] else 0
+            if freq:
+                wf.logger.debug("freq: %d for %s" % (freq, title))
             writer.add_document(title=title,
                                 content=titles,
-                                freq = freq,
+                                freq = int(round(freq/len(urls))),
                                 url=" ".join(urls),
                                 path=path,
                                 profile=profile,
@@ -83,7 +110,7 @@ class BookmarkIndex:
 
             bookmark_filename = profile_dir + "/Bookmarks"
             if isfile(bookmark_filename):
-                wf.logger.info("Searching file: %s", bookmark_filename)
+                wf.logger.debug("Searching file: %s", bookmark_filename)
                 bookmark_file = codecs.open(bookmark_filename, encoding='utf-8')
                 bookmark_data = json.load(bookmark_file)
                 roots = bookmark_data["roots"]
@@ -91,14 +118,9 @@ class BookmarkIndex:
                 for key in roots:
                     self.get_bookmark_tree(roots[key], writer, "", icon_file, profile)
 
-        return
-
     def index_profiles(self, profiles):
         wf = self._wf
-        wf.logger.info("Processing the history file: %s, in cache dir: %s", HISTORY_FILE, self._cacheDir)
-        BookmarkIndex.build_history(self._cacheDir +"/" + HISTORY_FILE)
-        print("HISTORY:")
-        print(HISTORY)
+        self.open_history(profiles)
 
         wf.cache_data(INDEXING_SETTING, True)
         current_index_color = wf.settings.setdefault(CURRENT_INDEX_SETTING, _GREEN_INDEX)
@@ -116,12 +138,13 @@ class BookmarkIndex:
         self._wf.settings.save()
         wf.cache_data(INDEXING_SETTING, False)
         wf.cache_data(INDEX_FRESH_CACHE, True)
+        self.close_history(profiles)
 
         return the_index
 
     def open_index(self, index_name):
         wf = self._wf
-        wf.logger.info("Opening the search index %s in cache dir: %s", index_name, self._cacheDir)
+        wf.logger.debug("Opening the search index %s in cache dir: %s", index_name, self._cacheDir)
         return index.open_dir(self._cacheDir, indexname=index_name)
 
     def get_index_if_exists(self):
@@ -150,18 +173,29 @@ class BookmarkIndex:
         return query.Prefix(_TEXT_FIELD, query_string)
         # if len(query_string) == 1:
 
-    @staticmethod
-    def build_history(filepath, max_age=0):
-        try:
-            with open(filepath, 'r') as f:
-                for line in f:
-                    ts, profile, bookmark = line.strip().decode("utf-8").split('\t')
-                    if profile not in HISTORY:
-                        HISTORY[profile] = {}
-                    if bookmark not in HISTORY[profile]:
-                        HISTORY[profile][bookmark] = 1
-                    else:
-                        HISTORY[profile][bookmark] += 1
-        except IOError:
-            return
+    def open_history(self, profiles):
+        wf = self._wf
+        for profile in profiles:
+            profile_dir = expanduser("~/Library/Application Support/Google/Chrome/%s" % profile)
+            history_filename = profile_dir + "/History"
+            if isfile(history_filename):
+                try:
+                    wf.logger.debug("Creating temporary copy of sqlite db for profile %s", profile)
+                    new_history_filename = "/tmp/History-{}.db".format(profile)
+                    shutil.copy(history_filename, new_history_filename)
+                    DB_HISTORY[profile] = sqlite3.connect(new_history_filename)
+                except Exception as e:
+                    wf.logger.error("Error copying/opening sqlite file %s: %s" % (new_history_filename, e))
+                    del DB_HISTORY[profile]
+
+    def close_history(self, profiles):
+        wf = self._wf
+        for profile in profiles:
+            if profile in DB_HISTORY:
+                wf.logger.debug("Deleting temporary copy of sqlite db for profile %s", profile)
+                DB_HISTORY[profile].close()
+                del DB_HISTORY[profile]
+                new_history_filename = "/tmp/History-{}.db".format(profile)
+                # if os.path.exists(new_history_filename):
+                #     os.remove(new_history_filename)
 

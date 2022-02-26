@@ -1,10 +1,10 @@
-.idea/
-*.iml
-
-*.egg-info/
+__pycache__/
+*.py[cod]
+*$py.class
 *.dist-info/
 
-*.pyc
+*.dist-info/
+*.alfredworkflow
 
 whoosh/
 workflow/

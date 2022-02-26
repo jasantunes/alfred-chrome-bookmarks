@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>bundleid</key>
-	<string>com.mayhoo.chromebookmarks</string>
+	<string>com.jasantunes.alfred-chrome-bookmarks</string>
 	<key>connections</key>
 	<dict>
 		<key>49936788-D3D9-49C2-95D0-A022290E7F4F</key>
@@ -58,6 +58,8 @@
 				<false/>
 			</dict>
 		</array>
+		<key>D7F242EC-873D-4846-ADB6-B9C8AA82278E</key>
+		<array/>
 		<key>EEE082BE-EAD0-4BF5-B546-7FB4C6545B24</key>
 		<array>
 			<dict>
@@ -73,20 +75,20 @@
 		</array>
 	</dict>
 	<key>createdby</key>
-	<string>Joao Antunes (based in Duane J. May)</string>
+	<string>Joao Antunes</string>
 	<key>description</key>
-	<string>Search Chrome Bookmarks Folders (multiple profile support)</string>
+	<string>Search Chrome Bookmark Folders (multiple profile support)</string>
 	<key>disabled</key>
 	<false/>
 	<key>name</key>
-	<string>Chrome Bookmarks Folders</string>
+	<string>Chrome Bookmark Folders</string>
 	<key>objects</key>
 	<array>
 		<dict>
 			<key>config</key>
 			<dict>
 				<key>text</key>
-				<string>Search Chrome Bookmarks for '{query}'</string>
+				<string>Search Chrome Bookmark Folders for '{query}'</string>
 			</dict>
 			<key>type</key>
 			<string>alfred.workflow.trigger.fallback</string>
@@ -129,9 +131,9 @@
 				<key>scriptfile</key>
 				<string></string>
 				<key>subtext</key>
-				<string>Enter query to search Chrome Bookmarks</string>
+				<string>Enter query to search Chrome Bookmark Folders</string>
 				<key>title</key>
-				<string>Chrome Bookmarks</string>
+				<string>Chrome Bookmark Folders</string>
 				<key>type</key>
 				<integer>0</integer>
 				<key>withspace</key>
@@ -153,10 +155,26 @@
 				<integer>0</integer>
 				<key>script</key>
 				<string>query=$1
-IFS=, read profile bookmark url &lt;&lt;&lt; "${query}"
-timestamp=$(date +%s)
-open --new -b com.google.Chrome --args --new-window --profile-directory="${profile}" ${url}
-echo -e "${timestamp}\t${profile}\t${bookmark}" &gt;&gt; "${alfred_workflow_cache}/history.tsv"</string>
+IFS=, read profile bookmark urls &lt;&lt;&lt; "${query}"
+
+browser_urls=
+non_browser_urls=
+
+for url in ${urls}
+do
+	if [[ "${url}" =~ ^http://|^https:// ]]
+	then
+		browser_urls="${browser_urls} ${url}"
+	else
+		non_browser_urls="${non_browser_urls} ${url}"
+	fi
+done
+
+# Open browser urls in chrome
+open --new -b com.google.Chrome --args --new-window --profile-directory="${profile}" ${browser_urls}
+
+# Open non-browser urls in default apps
+open ${non_browser_urls}</string>
 				<key>scriptargtype</key>
 				<integer>1</integer>
 				<key>scriptfile</key>
@@ -236,7 +254,7 @@ echo -e "${timestamp}\t${profile}\t${bookmark}" &gt;&gt; "${alfred_workflow_cach
 				<key>subtext</key>
 				<string>Chrome Profiles</string>
 				<key>title</key>
-				<string>Add a Chrome Profile to search Bookmarks</string>
+				<string>Add a Chrome Profile to Chrome Bookmark Folders</string>
 				<key>type</key>
 				<integer>0</integer>
 				<key>withspace</key>
@@ -333,7 +351,7 @@ echo -e "${timestamp}\t${profile}\t${bookmark}" &gt;&gt; "${alfred_workflow_cach
 				<key>subtext</key>
 				<string>Chrome Profiles</string>
 				<key>title</key>
-				<string>Remove a Chrome Profile to search Bookmarks</string>
+				<string>Remove a Chrome Profile to Chrome Bookmark Folders</string>
 				<key>type</key>
 				<integer>0</integer>
 				<key>withspace</key>
@@ -346,9 +364,58 @@ echo -e "${timestamp}\t${profile}\t${bookmark}" &gt;&gt; "${alfred_workflow_cach
 			<key>version</key>
 			<integer>3</integer>
 		</dict>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>alfredfiltersresults</key>
+				<false/>
+				<key>alfredfiltersresultsmatchmode</key>
+				<integer>0</integer>
+				<key>argumenttreatemptyqueryasnil</key>
+				<false/>
+				<key>argumenttrimmode</key>
+				<integer>0</integer>
+				<key>argumenttype</key>
+				<integer>2</integer>
+				<key>escaping</key>
+				<integer>102</integer>
+				<key>keyword</key>
+				<string>go-update</string>
+				<key>queuedelaycustom</key>
+				<integer>1</integer>
+				<key>queuedelayimmediatelyinitially</key>
+				<false/>
+				<key>queuedelaymode</key>
+				<integer>0</integer>
+				<key>queuemode</key>
+				<integer>1</integer>
+				<key>runningsubtext</key>
+				<string>Indexing...</string>
+				<key>script</key>
+				<string>/usr/bin/python update_index.py</string>
+				<key>scriptargtype</key>
+				<integer>0</integer>
+				<key>scriptfile</key>
+				<string></string>
+				<key>subtext</key>
+				<string></string>
+				<key>title</key>
+				<string>Force update suggestions</string>
+				<key>type</key>
+				<integer>0</integer>
+				<key>withspace</key>
+				<false/>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.input.scriptfilter</string>
+			<key>uid</key>
+			<string>D7F242EC-873D-4846-ADB6-B9C8AA82278E</string>
+			<key>version</key>
+			<integer>3</integer>
+		</dict>
 	</array>
 	<key>readme</key>
-	<string>Type "go" to see your bookmarks
+	<string>Type "go" to search on your bookmark folders
 
 Start typing a query and the bookmarks get filtered.
 
@@ -357,7 +424,7 @@ Type "go-add" or "go-remove" then select a listed profile to customize profiles 
 Note: go-remove will show the profiles that are currently being searched and `go-add` will show all available profiles.
 
 
-Originally based on a similar Workflow by: Blaine Schmeisser &lt;http://github.com/blainesch&gt;</string>
+A great part of the code was adapted from &lt;https://github.com/mdreizin/chrome-bookmarks-alfred-workflow&gt;</string>
 	<key>uidata</key>
 	<dict>
 		<key>49936788-D3D9-49C2-95D0-A022290E7F4F</key>
@@ -402,6 +469,13 @@ Originally based on a similar Workflow by: Blaine Schmeisser &lt;http://github.c
 			<key>ypos</key>
 			<integer>240</integer>
 		</dict>
+		<key>D7F242EC-873D-4846-ADB6-B9C8AA82278E</key>
+		<dict>
+			<key>xpos</key>
+			<integer>390</integer>
+			<key>ypos</key>
+			<integer>535</integer>
+		</dict>
 		<key>D8D71B7F-1E26-4B98-8D98-2B969DD2227A</key>
 		<dict>
 			<key>xpos</key>
@@ -420,8 +494,8 @@ Originally based on a similar Workflow by: Blaine Schmeisser &lt;http://github.c
 	<key>variablesdontexport</key>
 	<array/>
 	<key>version</key>
-	<string>1.2.0</string>
+	<string>0.0.1</string>
 	<key>webaddress</key>
-	<string>http://github.com/jasantunes</string>
+	<string>https://github.com/jasantunes/alfred-chrome-bookmarks</string>
 </dict>
 </plist>
