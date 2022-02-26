@@ -494,7 +494,7 @@ A great part of the code was adapted from &lt;https://github.com/mdreizin/chrome
 	<key>variablesdontexport</key>
 	<array/>
 	<key>version</key>
-	<string>0.0.1</string>
+	<string>0.0.2</string>
 	<key>webaddress</key>
 	<string>https://github.com/jasantunes/alfred-chrome-bookmarks</string>
 </dict>
