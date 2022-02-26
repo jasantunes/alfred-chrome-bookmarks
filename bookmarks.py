@@ -8,8 +8,25 @@ from bookmark_index import BookmarkIndex, BACKGROUND_JOB_KEY, INDEX_FRESH_CACHE,
 from workflow import Workflow3, ICON_WARNING
 from workflow.background import run_in_background, is_running
 
+UPDATE_SETTINGS = {
+    'github_slug': 'jasantunes/alfred-chrome-bookmarks',
+    'frequency': 1
+}
+
+ICON_UPDATE = 'update-available.png'
+
+# Shown in error logs. Users can find help here
+HELP_URL = 'https://github.com/{}'.format(UPDATE_SETTINGS['github_slug'])
+
 
 def main(wf):
+    # Update available?
+    if wf.update_available:
+        wf.add_item(u'A newer version is available',
+                    u'↩ to install update',
+                    autocomplete='workflow:update',
+                    icon=ICON_UPDATE)
+
     # build argument parser to parse script args and collect their
     # values
     parser = argparse.ArgumentParser()
@@ -88,5 +105,6 @@ def main(wf):
 
 
 if __name__ == u"__main__":
-    workflow = Workflow3()
+    workflow = Workflow3(help_url=HELP_URL,
+                         update_settings=UPDATE_SETTINGS)
     sys.exit(workflow.run(main))
