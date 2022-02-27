@@ -92,7 +92,7 @@ def main(wf):
         if results.scored_length():
             for hit in results[0:20]:
                 encoded_params = "%s,,%s" % (hit['profile'], hit['url'])
-                wf.add_item(title="{} ({})".format(hit['title'], hit['urlSize']),
+                wf.add_item(title="%s (%d)" % (hit['title'], hit['urlSize']),
                             subtitle="[%s] Open %d webpages in Google Chrome" % (hit['profile'], hit['urlSize']),
                             arg=encoded_params,
                             valid=True,
